@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Distribution Explorer — PY1614 Lecture 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,700&display=swap" rel="stylesheet">
+<style>
+  /* Page tokens: the week 1 quiz.  Chart tokens: the lecture slides
+     (data teal and terracotta, checked with a colour-vision validator
+     against this white card). */
+  :root {
+    --bg: #f6f5f1;
+    --card: #ffffff;
+    --ink: #1d2126;
+    --muted: #5a6068;
+    --accent: #2c5777;
+    --line: #e4dfd5;
+    --option-line: #e2ddd3;
+    --option-hover: #c9c1b3;
+    --data: #1a7aa0;
+    --alert: #b5462f;
+    --grid: #ece7de;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 880px; margin: 0 auto; padding: 48px 16px 64px; }
+
+  .page-header { text-align: center; }
+  .page-header h1 {
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-weight: 700;
+    font-size: clamp(2rem, 6vw, 2.75rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  .page-header .subtitle { color: var(--muted); font-size: 1.1rem; margin: 0; }
+  .rule { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+  .intro { color: var(--muted); font-size: 0.95rem; margin: 0 0 24px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 24px 24px 20px;
+    margin-bottom: 24px;
+  }
+
+  /* ---------- Controls: one row of filters above the chart ---------- */
+  .controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-end; margin-bottom: 14px; }
+  .control { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .control > span, .control legend {
+    font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); padding: 0;
+  }
+  fieldset.control { border: 0; padding: 0; margin: 0; }
+  select {
+    font: inherit; color: var(--ink); background: var(--card);
+    border: 1.5px solid var(--option-line); border-radius: 8px; padding: 8px 10px;
+  }
+  .seg { display: inline-flex; border: 1.5px solid var(--option-line); border-radius: 8px; overflow: hidden; }
+  .seg label { position: relative; }
+  .seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .seg span { display: block; padding: 7px 12px; cursor: pointer; font-size: 0.95rem; }
+  .seg label + label span { border-left: 1.5px solid var(--option-line); }
+  .seg input:checked + span { background: var(--accent); color: #fff; }
+  .seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -3px; }
+  input[type=range] { accent-color: var(--accent); width: 170px; }
+
+  .desc { margin: 0 0 4px; font-size: 1.02rem; }
+  .desc strong { font-weight: 600; }
+
+  /* ---------- Chart ---------- */
+  .chart-wrap { position: relative; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  svg text { font-family: inherit; fill: var(--muted); font-size: 13px; }
+  svg .axis-label { fill: var(--ink); font-size: 14px; }
+  svg .marker-label { fill: var(--ink); font-size: 13.5px; font-weight: 600; }
+  svg .band-label { fill: var(--ink); font-size: 13px; }
+  .bar { fill: var(--data); }
+  .bar.is-hover { fill: #135f7e; }
+  .hit { fill: transparent; cursor: crosshair; }
+
+  .tooltip {
+    position: absolute; pointer-events: none; background: var(--ink); color: #fff;
+    font-size: 0.85rem; line-height: 1.35; padding: 6px 10px; border-radius: 6px;
+    white-space: nowrap; transform: translate(-50%, -100%); margin-top: -10px; z-index: 2;
+  }
+  .tooltip[hidden] { display: none; }
+
+  .cover {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    background: var(--card); border: 2px dashed var(--line); border-radius: 10px; padding: 16px;
+  }
+  .cover[hidden] { display: none; }
+  .cover .big {
+    font-family: "Source Serif 4", Georgia, serif; font-weight: 700;
+    font-size: clamp(1.4rem, 4vw, 2rem); color: var(--accent); margin: 0 0 6px;
+  }
+  .cover p { margin: 0 0 4px; color: var(--muted); }
+  .cover ol { text-align: left; color: var(--ink); margin: 10px 0 16px; }
+
+  /* ---------- Toggles and actions ---------- */
+  .toggles { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 14px 0 4px; font-size: 0.95rem; }
+  .toggles label { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+  .toggles input { accent-color: var(--accent); width: 16px; height: 16px; }
+  .key { display: inline-block; width: 18px; height: 0; border-top: 3px solid; vertical-align: middle; }
+  .key.band { height: 12px; border: 0; background: rgba(26, 122, 160, 0.16); }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  .btn {
+    font: inherit; font-weight: 600; color: #fff; background: var(--accent);
+    border: 0; border-radius: 8px; padding: 10px 18px; cursor: pointer;
+  }
+  .btn:hover { background: #234862; }
+  .btn.ghost { background: var(--card); color: var(--accent); border: 1.5px solid var(--option-line); }
+  .btn.ghost:hover { border-color: var(--option-hover); background: #fcfbf8; }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .btn[disabled] { opacity: 0.45; cursor: default; }
+
+  /* ---------- Summary ---------- */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 12px; margin: 0; }
+  .stat { border-top: 1px solid var(--line); padding-top: 8px; }
+  .stat dt { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .stat dd { margin: 2px 0 0; font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat dd small { display: block; font-size: 0.78rem; font-weight: 400; color: var(--muted); }
+
+  details { margin-top: 16px; }
+  summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+  .notice { margin: 10px 0 0; padding: 12px 16px; border-left: 3px solid var(--accent); background: #f3f6f9; border-radius: 0 8px 8px 0; }
+  table { border-collapse: collapse; margin-top: 10px; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 4px 14px 4px 0; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+
+  .footer { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+
+  @media (max-width: 560px) {
+    .page { padding-top: 32px; }
+    .card { padding: 18px 14px 16px; }
+    input[type=range] { width: 130px; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <header class="page-header">
+    <h1>Distribution explorer</h1>
+    <p class="subtitle">PY1614 Research Analysis &middot; Lecture 2</p>
+  </header>
+
+  <hr class="rule">
+
+  <p class="intro">Six variables a psychologist might measure. Pick one and look at its shape. Where's the middle? How spread out is it? Is it balanced? Then try adding an extreme case and watch what the mean and the median do. All the data are simulated.</p>
+
+  <section class="card" aria-label="Explorer">
+    <div class="controls">
+      <label class="control"><span>Variable</span>
+        <select id="variable"></select>
+      </label>
+      <fieldset class="control"><legend>People</legend>
+        <div class="seg" id="sizes"></div>
+      </fieldset>
+      <label class="control"><span>Bar width <output id="binout"></output></span>
+        <input type="range" id="bin">
+      </label>
+      <label class="control" id="logwrap" hidden><span>Scale</span>
+        <span class="seg"><label><input type="checkbox" id="log"><span>Log scale</span></label></span>
+      </label>
+    </div>
+
+    <p class="desc" id="desc"></p>
+
+    <div class="chart-wrap" id="chartwrap">
+      <svg id="chart" viewBox="0 0 820 400" role="img" aria-labelledby="chart-title"><title id="chart-title">Histogram</title></svg>
+      <div class="tooltip" id="tip" hidden></div>
+      <div class="cover" id="cover" hidden>
+        <p class="big" id="cover-name"></p>
+        <p>What shape will the histogram have?</p>
+        <ol>
+          <li>Roughly symmetric (bell-shaped)</li>
+          <li>Right-skewed (long tail to the right)</li>
+          <li>Left-skewed (long tail to the left)</li>
+          <li>A pile at zero, then a long tail</li>
+        </ol>
+        <button class="btn" id="reveal" type="button">Reveal</button>
+      </div>
+    </div>
+
+    <div class="toggles" aria-label="What to show">
+      <label><input type="checkbox" id="t-mean" checked><span class="key" style="border-color: var(--alert)"></span> Mean</label>
+      <label><input type="checkbox" id="t-median" checked><span class="key" style="border-color: var(--ink)"></span> Median</label>
+      <label><input type="checkbox" id="t-mode"><span class="key" style="border-color: var(--muted); border-top-width: 2px"></span> Mode</label>
+      <label><input type="checkbox" id="t-sd"><span class="key band"></span> Mean &plusmn; 1 SD</label>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="add" type="button">Add an extreme case</button>
+      <button class="btn ghost" id="clear" type="button">Remove extreme cases</button>
+      <button class="btn ghost" id="hide" type="button">Hide the histogram</button>
+    </div>
+  </section>
+
+  <section class="card" aria-label="Summary">
+    <dl class="stats" id="stats"></dl>
+    <details>
+      <summary>What to notice</summary>
+      <p class="notice" id="notice"></p>
+    </details>
+    <details>
+      <summary>Show the counts as a table</summary>
+      <div id="table"></div>
+    </details>
+  </section>
+
+  <p class="footer">Simulated data, generated the same way every time you load the page.</p>
+</main>
+
+<script>
+(function () {
+  /* -------------------------------------------------------- random numbers */
+  // A seeded generator, so every student sees exactly the same data.
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function normal(r, mu, sd) {
+    var u = 1 - r(), v = r();
+    return mu + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+  function expo(r, mean) { return -mean * Math.log(1 - r()); }
+  function pick(r, weights) {
+    var s = 0, i, total = weights.reduce(function (a, b) { return a + b; }, 0), x = r() * total;
+    for (i = 0; i < weights.length; i++) { s += weights[i]; if (x < s) return i; }
+    return weights.length - 1;
+  }
+
+  /* ------------------------------------------------------------- variables */
+  // step: the precision values are recorded to (1 = whole numbers).
+  // bin: [default, min, max, step] for the bar-width slider.
+  var VARS = [
+    { id: "rt", name: "Reaction times", unit: "ms", axis: "Reaction time (ms)", step: 1,
+      desc: "Simple reaction times: press a key as soon as a light comes on.",
+      gen: function (r) { return Math.max(160, normal(r, 420, 45) + expo(r, 110)); },
+      bin: [25, 10, 100, 5], extreme: 3000, extremeText: "a participant at 3,000 ms",
+      notice: "There's a floor (nobody responds in 0 ms) but no ceiling, so the tail runs to the right: right-skewed. The mean sits to the right of the median. Add a 3,000 ms participant with 20 people showing and watch the mean jump while the median barely moves." },
+    { id: "iq", name: "IQ scores", unit: "", axis: "IQ score", step: 1,
+      desc: "Scores on an IQ test, which is scaled to have a mean of 100 and an SD of 15.",
+      gen: function (r) { return normal(r, 100, 15); },
+      bin: [5, 1, 15, 1], extreme: 175, extremeText: "a person scoring 175",
+      notice: "Roughly symmetric and bell-shaped: the normal distribution. The mean and median are almost the same, and about two-thirds of people are within 1 SD of the mean (switch on the ±1 SD band)." },
+    { id: "alcohol", name: "Alcohol units last week", unit: "units", axis: "Alcohol units last week", step: 1, lo: 0,
+      desc: "How many units of alcohol people drank in the past seven days.",
+      gen: function (r) { return r() < 0.32 ? 0 : Math.min(80, Math.max(1, Math.exp(normal(r, Math.log(7), 0.75)))); },
+      bin: [1, 1, 5, 1], extreme: 120, extremeText: "someone who drank 120 units",
+      notice: "A big pile at zero (people who don't drink at all), then a long tail of people who drink quite a lot: zero-inflated and right-skewed. The mode is 0, the median is low and the mean is higher still." },
+    { id: "sleep", name: "Hours slept last night", unit: "hours", axis: "Hours slept last night", step: 0.5,
+      desc: "Self-reported, to the nearest half hour.",
+      gen: function (r) { return Math.min(12, Math.max(2, normal(r, 6.9, 1.2))); },
+      bin: [0.5, 0.5, 2, 0.5], extreme: 16, extremeText: "someone who slept 16 hours",
+      notice: "Roughly symmetric: most people sleep 6 to 8 hours, with a few short and a few long sleepers. The mean and median are close." },
+    { id: "lifesat", name: "Life satisfaction, 0 to 10", unit: "", axis: "Life satisfaction (0–10)", step: 1, lo: 0, hi: 10,
+      desc: "“Overall, how satisfied are you with your life nowadays?”",
+      gen: function (r) { return pick(r, [1, 1, 2, 4, 5, 10, 14, 24, 23, 10, 6]); },
+      bin: [1, 1, 1, 1], extreme: 0, extremeText: "someone who answers 0",
+      notice: "There's a ceiling at 10 and most people are fairly satisfied, so the tail runs to the left: left-skewed. Now the mean is to the left of the median." },
+    { id: "followers", name: "Social media followers", unit: "followers", axis: "Followers", step: 1, log: true,
+      desc: "How many followers people have on one social media platform.",
+      gen: function (r) { return Math.exp(normal(r, Math.log(300), 1.6)); },
+      bin: [2000, 500, 10000, 500], logBin: 0.125, extreme: 2000000, extremeText: "an influencer with 2,000,000",
+      notice: "Most people have a few hundred followers; a few have tens of thousands. On an ordinary scale it's one tall bar and a tail you can barely see. Switch on the log scale: each step along the axis is ×10, and the long tail turns into a bell (a log-normal distribution). The mean is far above the median." }
+  ];
+  var SIZES = [20, 100, 1000];
+
+  // Every variable gets one fixed list of 1,000 people.  Smaller samples are
+  // the first 20 or 100 of them, so "more people" means adding people.
+  VARS.forEach(function (v, i) {
+    var r = mulberry32(1614 + 97 * i);
+    v.data = [];
+    for (var k = 0; k < 1000; k++) {
+      var x = v.gen(r);
+      v.data.push(Math.round(x / v.step) * v.step);
+    }
+  });
+
+  /* ----------------------------------------------------------------- state */
+  var S = { v: VARS[0], n: 1000, bin: VARS[0].bin[0], log: false, extras: [], hidden: false };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var svg = $("chart"), tip = $("tip");
+  var NS = "http://www.w3.org/2000/svg";
+
+  function fmt(x, v) {
+    var d = v.step < 1 ? 1 : 0;
+    if (Math.abs(x) >= 10000) d = 0;
+    return x.toLocaleString("en-GB", { minimumFractionDigits: d, maximumFractionDigits: d });
+  }
+  function fmt2(x) { return x.toLocaleString("en-GB", { maximumFractionDigits: 2, minimumFractionDigits: 0 }); }
+  // "1 unit", "2 units"; "1 hour", "0.5 hours"
+  function withUnit(x, v) {
+    if (!v.unit) return fmt(x, v);
+    var u = (x === 1 && /s$/.test(v.unit) && v.unit !== "ms") ? v.unit.slice(0, -1) : v.unit;
+    return fmt(x, v) + " " + u;
+  }
+
+  /* ----------------------------------------------------------- statistics */
+  function summary(xs, v) {
+    var n = xs.length, sorted = xs.slice().sort(function (a, b) { return a - b; });
+    var mean = xs.reduce(function (a, b) { return a + b; }, 0) / n;
+    var median = n % 2 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
+    var ss = xs.reduce(function (a, x) { return a + (x - mean) * (x - mean); }, 0);
+    var sd = Math.sqrt(ss / (n - 1));
+    var within = xs.filter(function (x) { return x >= mean - sd && x <= mean + sd; }).length / n;
+    // Mode: the most common recorded value.  Only meaningful when values
+    // repeat a lot, so for reaction times and followers it reports the
+    // tallest bar instead (computed in draw()).
+    var counts = {}, best = null, bestN = 0;
+    xs.forEach(function (x) { counts[x] = (counts[x] || 0) + 1; if (counts[x] > bestN) { bestN = counts[x]; best = x; } });
+    return { n: n, mean: mean, median: median, sd: sd, within: within, mode: best,
+             min: sorted[0], max: sorted[n - 1] };
+  }
+  var MODE_BY_BIN = { rt: true, iq: true, followers: true };
+
+  /* ----------------------------------------------------------------- scale */
+  function niceStep(span, target) {
+    var raw = span / target, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p;
+  }
+
+  /* ------------------------------------------------------------------ draw */
+  function el(tag, attrs, text) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function draw() {
+    var v = S.v, xs = v.data.slice(0, S.n).concat(S.extras);
+    var st = summary(xs, v);
+    var useLog = v.log && S.log;
+
+    // bins -------------------------------------------------------------
+    var bins = [], lo, hi, w = S.bin;
+    if (useLog) {
+      var e0 = 0, e1 = Math.ceil(Math.log10(Math.max(10, st.max)) / v.logBin) * v.logBin;
+      for (var a = e0; a < e1 - 1e-9; a += v.logBin) bins.push({ a: Math.pow(10, a), b: Math.pow(10, a + v.logBin), n: 0 });
+      xs.forEach(function (x) {
+        var k = Math.floor((Math.log10(Math.max(1, x)) - e0) / v.logBin);
+        k = Math.max(0, Math.min(bins.length - 1, k)); bins[k].n++;
+      });
+      lo = 1; hi = Math.pow(10, e1);
+    } else {
+      // When the bar width equals the recording precision, centre each bar
+      // on its value (0, 1, 2 ... or 6, 6.5, 7 ...).
+      var offset = (w === v.step) ? -w / 2 : 0;
+      var from = v.lo != null ? Math.min(v.lo, st.min) : st.min;
+      var to = v.hi != null ? Math.max(v.hi, st.max) : st.max;
+      var start = Math.floor((from - offset) / w + 1e-9) * w + offset;
+      var end = to + w / 2 + (offset ? 0 : w / 2);
+      for (var b = start; b < end - 1e-9; b += w) bins.push({ a: b, b: b + w, n: 0 });
+      xs.forEach(function (x) {
+        var k = Math.floor((x - start) / w + 1e-9);
+        k = Math.max(0, Math.min(bins.length - 1, k)); bins[k].n++;
+      });
+      lo = bins[0].a; hi = bins[bins.length - 1].b;
+    }
+    var ymax = Math.max.apply(null, bins.map(function (d) { return d.n; }));
+
+    // the mode for continuous-ish variables is the tallest bar
+    var modeVal = st.mode, modeIsBin = MODE_BY_BIN[v.id];
+    if (modeIsBin) {
+      var top = bins.reduce(function (m, d) { return d.n > m.n ? d : m; }, bins[0]);
+      modeVal = useLog ? Math.sqrt(top.a * top.b) : (top.a + top.b) / 2;
+      st.modeBin = top;
+    }
+
+    // geometry ----------------------------------------------------------
+    // Draw at the container's own width, so on a phone the text isn't
+    // scaled down to nothing.
+    var W = Math.max(320, Math.min(820, Math.round($("chartwrap").clientWidth || 820)));
+    var narrow = W < 560;
+    var H = narrow ? 330 : 400, M = { l: narrow ? 50 : 62, r: narrow ? 12 : 22, t: 64, b: 56 };
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    var pw = W - M.l - M.r, ph = H - M.t - M.b;
+    var X = useLog
+      ? function (x) { return M.l + (Math.log10(Math.max(lo, x)) - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo)) * pw; }
+      : function (x) { return M.l + (x - lo) / (hi - lo) * pw; };
+    // headroom above the tallest bar, so the band label never sits on a bar
+    var ystep = niceStep(ymax * 1.18, 4), ytop = Math.ceil(ymax * 1.18 / ystep) * ystep;
+    var Y = function (c) { return M.t + ph - c / ytop * ph; };
+
+    while (svg.lastChild && svg.lastChild.tagName !== "title") svg.removeChild(svg.lastChild);
+    $("chart-title").textContent = "Histogram of " + v.name.toLowerCase() + ", " + st.n + " people";
+
+    // gridlines + y axis (hairline, solid, recessive)
+    for (var yv = 0; yv <= ytop + 1e-9; yv += ystep) {
+      svg.appendChild(el("line", { x1: M.l, x2: W - M.r, y1: Y(yv), y2: Y(yv), stroke: yv === 0 ? "#c9c1b3" : "#ece7de", "stroke-width": 1 }));
+      svg.appendChild(el("text", { x: M.l - 10, y: Y(yv) + 4, "text-anchor": "end" }, yv.toLocaleString("en-GB")));
+    }
+    svg.appendChild(el("text", { class: "axis-label", x: 16, y: M.t + ph / 2, transform: "rotate(-90 16 " + (M.t + ph / 2) + ")", "text-anchor": "middle" }, "Number of people"));
+
+    // x ticks
+    var ticks = [];
+    if (useLog) { for (var p = 0; Math.pow(10, p) <= hi; p++) ticks.push(Math.pow(10, p)); }
+    else {
+      var xstep = v.id === "lifesat" ? (narrow ? 2 : 1) : niceStep(hi - lo, narrow ? 4 : 7);
+      // (+ 0 turns the -0 that Math.ceil(-0.5) gives into a plain 0)
+      for (var t = Math.ceil(lo / xstep) * xstep + 0; t <= hi + 1e-9; t += xstep) ticks.push(t + 0);
+    }
+    ticks.forEach(function (t) {
+      svg.appendChild(el("text", { x: X(t), y: H - M.b + 20, "text-anchor": "middle" }, fmt(t, v)));
+    });
+    svg.appendChild(el("text", { class: "axis-label", x: M.l + pw / 2, y: H - 10, "text-anchor": "middle" }, v.axis + (useLog ? " (log scale)" : "")));
+
+    // ±1 SD band (behind the bars), linear scale only
+    var showSD = $("t-sd").checked && !useLog;
+    if (showSD) {
+      var x0 = Math.max(M.l, X(st.mean - st.sd)), x1 = Math.min(W - M.r, X(st.mean + st.sd));
+      svg.appendChild(el("rect", { x: x0, y: M.t, width: Math.max(0, x1 - x0), height: ph, fill: "rgba(26,122,160,0.13)" }));
+      // label at the top of the band, ending at its right edge, but never
+      // starting left of the plot (a narrow band on a phone)
+      var bandText = Math.round(st.within * 100) + "% within 1 SD";
+      var lx = Math.max(M.l + 6, x1 - 6 - bandText.length * 7.2);
+      svg.appendChild(el("text", { class: "band-label", x: lx, y: M.t + 16, "text-anchor": "start" }, bandText));
+    }
+
+    // bars: 2px gap between neighbours, 4px rounded tops, square at the baseline
+    var g = el("g", {});
+    bins.forEach(function (d) {
+      if (!d.n) return;
+      var bx = X(d.a) + 1, bw = Math.max(1, X(d.b) - X(d.a) - 2), by = Y(d.n), bh = Y(0) - by;
+      var r = Math.min(4, bw / 2, bh);
+      var path = "M" + bx + "," + Y(0) + "V" + (by + r) + "Q" + bx + "," + by + " " + (bx + r) + "," + by +
+                 "H" + (bx + bw - r) + "Q" + (bx + bw) + "," + by + " " + (bx + bw) + "," + (by + r) + "V" + Y(0) + "Z";
+      d.el = el("path", { d: path, class: "bar" });
+      g.appendChild(d.el);
+    });
+    svg.appendChild(g);
+
+    // markers, with labels above the plot pushed apart if they would touch
+    var marks = [];
+    if ($("t-mean").checked) marks.push({ x: st.mean, label: "mean", colour: "var(--alert)", w: 2.5 });
+    if ($("t-median").checked) marks.push({ x: st.median, label: "median", colour: "var(--ink)", w: 2.5 });
+    if ($("t-mode").checked) marks.push({ x: modeVal, label: "mode", colour: "var(--muted)", w: 1.6 });
+    marks.forEach(function (m) { m.px = Math.max(M.l, Math.min(W - M.r, X(m.x))); });
+    marks.sort(function (a, b) { return a.px - b.px; });
+    // Each label sits beside its own line: the leftmost line gets its label on
+    // the left, the others on the right.  A label that would touch one
+    // already placed drops to the next row.
+    var placed = [];
+    marks.forEach(function (m, i) {
+      var tw = m.label.length * 8.2;
+      m.side = (i === 0 && marks.length > 1) ? "left" : "right";
+      if (m.side === "right" && m.px + 5 + tw > W - 4) m.side = "left";
+      var a = m.side === "left" ? m.px - 5 - tw : m.px + 5, b = a + tw, row = 0;
+      while (placed.some(function (p) { return p.row === row && a < p.b + 6 && b > p.a - 6; })) row++;
+      placed.push({ row: row, a: a, b: b });
+      m.row = row;
+    });
+    marks.forEach(function (m) {
+      var ly = M.t - 40 + m.row * 18;
+      svg.appendChild(el("line", { x1: m.px, x2: m.px, y1: ly - 12, y2: Y(0), stroke: m.colour, "stroke-width": m.w }));
+      svg.appendChild(el("text", { class: "marker-label", x: m.side === "left" ? m.px - 5 : m.px + 5, y: ly,
+                                   "text-anchor": m.side === "left" ? "end" : "start" }, m.label));
+    });
+
+    // hover targets: the whole column, wider than the bar
+    bins.forEach(function (d) {
+      var hx = X(d.a), hw = Math.max(6, X(d.b) - X(d.a));
+      var hit = el("rect", { x: hx, y: M.t, width: hw, height: ph, class: "hit" });
+      hit.addEventListener("mousemove", function (ev) { showTip(ev, d, v, useLog); if (d.el) d.el.classList.add("is-hover"); });
+      hit.addEventListener("mouseleave", function () { tip.hidden = true; if (d.el) d.el.classList.remove("is-hover"); });
+      svg.appendChild(hit);
+    });
+
+    // summary --------------------------------------------------------------
+    var u = v.unit ? " " + v.unit : "";
+    var modeText = modeIsBin
+      ? fmt(st.modeBin.a, v) + "–" + fmt(st.modeBin.b, v) + "<small>the tallest bar</small>"
+      : fmt(st.mode, v) + "<small>most common value</small>";
+    $("stats").innerHTML =
+      stat("People", st.n.toLocaleString("en-GB"), S.extras.length ? "incl. " + S.extras.length + " extreme" : "") +
+      stat("Mean", fmt2(st.mean), v.unit) +
+      stat("Median", fmt2(st.median), v.unit) +
+      "<div class=stat><dt>Mode</dt><dd>" + modeText + "</dd></div>" +
+      stat("SD", fmt2(st.sd), v.unit) +
+      stat("Range", fmt(st.min, v) + "–" + fmt(st.max, v), v.unit);
+
+    // table view
+    var rowsHtml = bins.filter(function (d) { return d.n; }).map(function (d) {
+      return "<tr><td>" + range(d, v, useLog) + "</td><td>" + d.n + "</td></tr>";
+    }).join("");
+    $("table").innerHTML = "<table><thead><tr><th>" + v.axis + "</th><th>People</th></tr></thead><tbody>" + rowsHtml + "</tbody></table>";
+
+    // status of the buttons
+    $("clear").disabled = !S.extras.length;
+  }
+
+  function stat(label, value, note) {
+    return "<div class=stat><dt>" + label + "</dt><dd>" + value + (note ? "<small>" + note + "</small>" : "") + "</dd></div>";
+  }
+  function range(d, v, useLog) {
+    if (!useLog && S.bin === v.step) return fmt((d.a + d.b) / 2, v);
+    return fmt(d.a, v) + "–" + fmt(d.b, v);
+  }
+  function showTip(ev, d, v, useLog) {
+    var box = $("chartwrap").getBoundingClientRect();
+    tip.innerHTML = "<strong>" + range(d, v, useLog) + (v.unit ? " " + v.unit : "") + "</strong><br>" + d.n + (d.n === 1 ? " person" : " people");
+    tip.style.left = (ev.clientX - box.left) + "px";
+    tip.style.top = (ev.clientY - box.top) + "px";
+    tip.hidden = false;
+  }
+
+  /* ----------------------------------------------------------------- setup */
+  function setVariable(v) {
+    S.v = v; S.extras = []; S.log = false; $("log").checked = false;
+    var b = $("bin");
+    b.min = v.bin[1]; b.max = v.bin[2]; b.step = v.bin[3]; b.value = v.bin[0]; S.bin = v.bin[0];
+    b.disabled = v.bin[1] === v.bin[2];
+    $("binout").textContent = withUnit(S.bin, v);
+    $("logwrap").hidden = !v.log;
+    $("desc").innerHTML = "<strong>" + v.name + ".</strong> " + v.desc;
+    $("notice").textContent = v.notice;
+    $("add").textContent = "Add an extreme case: " + v.extremeText;
+    $("cover-name").textContent = v.name;
+    draw();
+  }
+
+  VARS.forEach(function (v, i) {
+    var o = document.createElement("option");
+    o.value = i; o.textContent = v.name;
+    $("variable").appendChild(o);
+  });
+  SIZES.forEach(function (n) {
+    var lab = document.createElement("label");
+    lab.innerHTML = '<input type="radio" name="n" value="' + n + '"' + (n === S.n ? " checked" : "") +
+                    '><span>' + n.toLocaleString("en-GB") + "</span>";
+    $("sizes").appendChild(lab);
+  });
+
+  $("variable").addEventListener("change", function () { setVariable(VARS[+this.value]); });
+  $("sizes").addEventListener("change", function (e) { S.n = +e.target.value; draw(); });
+  $("bin").addEventListener("input", function () {
+    S.bin = +this.value; $("binout").textContent = withUnit(S.bin, S.v); draw();
+  });
+  $("log").addEventListener("change", function () {
+    S.log = this.checked; $("bin").disabled = S.log || S.v.bin[1] === S.v.bin[2]; draw();
+  });
+  ["t-mean", "t-median", "t-mode", "t-sd"].forEach(function (id) { $(id).addEventListener("change", draw); });
+  $("add").addEventListener("click", function () { S.extras.push(S.v.extreme); draw(); });
+  $("clear").addEventListener("click", function () { S.extras = []; draw(); });
+  $("hide").addEventListener("click", function () {
+    S.hidden = !S.hidden; $("cover").hidden = !S.hidden;
+    this.textContent = S.hidden ? "Show the histogram" : "Hide the histogram";
+    // the summary numbers would give the answer away, so they hide too
+    $("stats").style.visibility = S.hidden ? "hidden" : "visible";
+  });
+  $("reveal").addEventListener("click", function () { $("hide").click(); });
+  var resizeTimer;
+  window.addEventListener("resize", function () {
+    tip.hidden = true;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(draw, 120);
+  });
+
+  // For checking the numbers from outside the page.
+  window.explorer = { VARS: VARS, summary: summary, state: S };
+
+  setVariable(VARS[0]);
+})();
+</script>
+</body>
+</html>

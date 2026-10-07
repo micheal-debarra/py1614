@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pile Up the Measurements — PY1614 Lecture 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,700&display=swap" rel="stylesheet">
+<style>
+  /* Page tokens: the week 1 quiz.  Chart tokens: the lecture slides. */
+  :root {
+    --bg: #f6f5f1;
+    --card: #ffffff;
+    --ink: #1d2126;
+    --muted: #5a6068;
+    --accent: #2c5777;
+    --line: #e4dfd5;
+    --option-line: #e2ddd3;
+    --option-hover: #c9c1b3;
+    --data: #1a7aa0;
+    --alert: #b5462f;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 960px; margin: 0 auto; padding: 40px 16px 56px; }
+
+  .page-header { text-align: center; }
+  .page-header h1 {
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-weight: 700;
+    font-size: clamp(2rem, 6vw, 2.75rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  .page-header .subtitle { color: var(--muted); font-size: 1.1rem; margin: 0; }
+  .rule { border: 0; border-top: 1px solid var(--line); margin: 24px 0; }
+  .intro { color: var(--muted); font-size: 0.95rem; margin: 0 0 20px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px 22px 18px;
+    margin-bottom: 20px;
+  }
+
+  /* Controls: one row above the chart */
+  .controls { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: center; margin-bottom: 16px; }
+  select {
+    font: inherit; color: var(--ink); background: var(--card);
+    border: 1.5px solid var(--option-line); border-radius: 8px; padding: 9px 10px;
+  }
+  .btn {
+    font: inherit; font-weight: 600; color: #fff; background: var(--accent);
+    border: 0; border-radius: 8px; padding: 10px 16px; cursor: pointer;
+  }
+  .btn:hover { background: #234862; }
+  .btn.ghost { background: var(--card); color: var(--accent); border: 1.5px solid var(--option-line); }
+  .btn.ghost:hover { border-color: var(--option-hover); background: #fcfbf8; }
+  .btn:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .btn[disabled] { opacity: 0.45; cursor: default; }
+  .toggle { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font-weight: 500; }
+  .toggle input { accent-color: var(--accent); width: 17px; height: 17px; }
+  .key { display: inline-block; width: 18px; border-top: 3px solid var(--alert); vertical-align: middle; }
+
+  /* The reading for the person just measured */
+  .readout { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 18px; margin: 0 0 6px; }
+  .latest { font-size: clamp(1.15rem, 3vw, 1.55rem); font-weight: 500; min-height: 1.5em; }
+  .latest strong { color: var(--alert); font-weight: 600; }
+  .count { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .count b { color: var(--ink); font-size: 1.25rem; }
+
+  .chart-wrap { position: relative; }
+  canvas { display: block; width: 100%; }
+  .tooltip {
+    position: absolute; pointer-events: none; background: var(--ink); color: #fff;
+    font-size: 0.85rem; line-height: 1.35; padding: 6px 10px; border-radius: 6px;
+    white-space: nowrap; transform: translate(-50%, -100%); margin-top: -10px;
+  }
+
+  .hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 0; }
+  kbd {
+    font: inherit; font-size: 0.8rem; padding: 1px 6px; border: 1px solid var(--option-line);
+    border-bottom-width: 2px; border-radius: 5px; background: #fcfbf8;
+  }
+  .footer { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+
+  @media (max-width: 560px) {
+    .page { padding-top: 28px; }
+    .card { padding: 16px 12px 14px; }
+    .btn { padding: 9px 12px; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <header class="page-header">
+    <h1>Pile up the measurements</h1>
+    <p class="subtitle">PY1614 Research Analysis &middot; Lecture 2</p>
+  </header>
+
+  <hr class="rule">
+
+  <p class="intro">Each press adds people. Each person's measurement drops onto the chart as a dot, in the column for its value. Keep adding people and the dots pile up into a shape: the variable's <strong>distribution</strong>. Then try a different variable and see what shape it makes.</p>
+
+  <section class="card" aria-label="Pile up the measurements">
+    <div class="controls">
+      <select id="variable" aria-label="Variable"></select>
+      <button class="btn" id="one" type="button">Add a person</button>
+      <button class="btn ghost" id="ten" type="button">Add 10 people</button>
+      <button class="btn ghost" id="hundred" type="button">Add 100 people</button>
+      <label class="toggle"><input type="checkbox" id="shape"> <span class="key"></span> Show the shape</label>
+      <label class="toggle" id="logwrap" hidden><input type="checkbox" id="log"> Log scale</label>
+      <button class="btn ghost" id="reset" type="button">Start again</button>
+    </div>
+
+    <div class="readout">
+      <p class="latest" id="latest" aria-live="polite"></p>
+      <p class="count"><b id="n">0</b> people measured</p>
+    </div>
+
+    <div class="chart-wrap" id="wrap">
+      <canvas id="chart" role="img" aria-label="Dot plot of the measurements so far"></canvas>
+      <div class="tooltip" id="tip" hidden></div>
+    </div>
+
+    <p class="hint">Keys: <kbd>Space</kbd> add a person &middot; <kbd>T</kbd> add 10 &middot; <kbd>H</kbd> add 100 &middot; <kbd>S</kbd> show the shape &middot; <kbd>L</kbd> log scale (followers) &middot; <kbd>R</kbd> start again</p>
+  </section>
+
+  <p class="footer">Simulated data, the same every time you load the page.</p>
+</main>
+
+<script>
+(function () {
+  /* -------------------------------------------------------- random numbers */
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function normal(r, mu, sd) {
+    var u = 1 - r(), v = r();
+    return mu + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+  function expo(r, mean) { return -mean * Math.log(1 - r()); }
+  function pick(r, w) {
+    var total = w.reduce(function (a, b) { return a + b; }, 0), x = r() * total, s = 0;
+    for (var i = 0; i < w.length; i++) { s += w[i]; if (x < s) return i; }
+    return w.length - 1;
+  }
+
+  function num(x) { return x.toLocaleString("en-GB", { maximumFractionDigits: 1 }); }
+
+  /* ------------------------------------------------------------- variables */
+  // Each scale has k columns starting at lo, w wide.  Values outside the
+  // range go in the end columns.  range: true means a column holds a range
+  // of values ("170-172 cm"); otherwise one value ("6.5 hours").
+  // Followers also have a log scale, in powers of ten.
+  var VARS = [
+    { id: "sleep", name: "Hours slept last night", lo: 3.25, w: 0.5, k: 16,
+      ticks: [4, 5, 6, 7, 8, 9, 10, 11], axis: "Hours slept last night",
+      say: function (x) { return "slept <strong>" + num(x) + " hours</strong>"; },
+      unit: function (x) { return num(x) + " hours"; },
+      gen: function (r) { return Math.min(11, Math.max(3.5, Math.round(normal(r, 6.9, 1.2) * 2) / 2)); } },
+    { id: "height", name: "Height", lo: 136, w: 2, k: 34, range: true, word: "cm",
+      ticks: [140, 150, 160, 170, 180, 190, 200], axis: "Height (cm)",
+      say: function (x) { return "is <strong>" + x + " cm</strong> tall"; },
+      gen: function (r) { return Math.round(normal(r, 170, 10)); } },
+    { id: "rt", name: "Reaction times", lo: 250, w: 25, k: 38, range: true, word: "ms",
+      ticks: [300, 500, 700, 900, 1100], axis: "Reaction time (ms)",
+      say: function (x) { return "responded in <strong>" + x + " ms</strong>"; },
+      gen: function (r) { return Math.round(Math.max(160, normal(r, 420, 45) + expo(r, 110))); } },
+    { id: "alcohol", name: "Alcohol units last week", lo: -0.5, w: 1, k: 41, top: "40 units or more",
+      ticks: [0, 5, 10, 15, 20, 25, 30, 35, 40], axis: "Alcohol units last week",
+      say: function (x) { return "drank <strong>" + x + (x === 1 ? " unit" : " units") + "</strong> last week"; },
+      unit: function (x) { return x + (x === 1 ? " unit" : " units"); },
+      gen: function (r) { return r() < 0.32 ? 0 : Math.round(Math.min(80, Math.max(1, Math.exp(normal(r, Math.log(7), 0.75))))); } },
+    { id: "lifesat", name: "Life satisfaction, 0 to 10", lo: -0.5, w: 1, k: 11,
+      ticks: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], axis: "Life satisfaction (0–10)",
+      say: function (x) { return "rated their life <strong>" + x + " out of 10</strong>"; },
+      unit: function (x) { return String(x); },
+      gen: function (r) { return pick(r, [1, 1, 2, 4, 5, 10, 14, 24, 23, 10, 6]); } },
+    { id: "followers", name: "Social media followers", lo: 0, w: 1000, k: 40, range: true, word: "followers",
+      top: "39,000 followers or more",
+      ticks: [0, 10000, 20000, 30000, 40000], axis: "Followers",
+      say: function (x) { return "has <strong>" + x.toLocaleString("en-GB") + (x === 1 ? " follower" : " followers") + "</strong>"; },
+      gen: function (r) { return Math.round(Math.exp(normal(r, Math.log(300), 1.6))); },
+      // log scale: columns a quarter of a power of ten wide, from 1 to 1,000,000
+      log: { lo: 0, w: 0.25, k: 24, ticks: [0, 1, 2, 3, 4, 5, 6], axis: "Followers (log scale)",
+             tick: function (t) { return Math.pow(10, t).toLocaleString("en-GB"); } } }
+  ];
+  var MAX = 3000;
+
+  // Everyone each variable will ever measure, fixed in advance.
+  VARS.forEach(function (v, i) {
+    var r = mulberry32(2026 + 131 * i);
+    v.data = [];
+    while (v.data.length < MAX) v.data.push(v.gen(r));
+  });
+
+  /* ----------------------------------------------------------------- state */
+  var S = { v: VARS[0], log: false, n: 0, counts: [], order: [], born: [], timers: [] };
+  var $ = function (id) { return document.getElementById(id); };
+  var canvas = $("chart"), ctx = canvas.getContext("2d"), tip = $("tip");
+  var css = getComputedStyle(document.documentElement);
+  var C = {
+    data: css.getPropertyValue("--data").trim(), alert: css.getPropertyValue("--alert").trim(),
+    ink: css.getPropertyValue("--ink").trim(), muted: css.getPropertyValue("--muted").trim(),
+    line: "#c9c1b3", card: "#ffffff"
+  };
+  var FALL_MS = 420;
+  var ADD = ["one", "ten", "hundred"];
+
+  // The scale in use: the variable's own, or its log scale.
+  function sc() { return (S.log && S.v.log) ? S.v.log : S.v; }
+  function tx(x) { return (S.log && S.v.log) ? Math.log10(Math.max(1, x)) : x; }
+  function colOf(x) { var s = sc(); return Math.max(0, Math.min(s.k - 1, Math.floor((tx(x) - s.lo) / s.w + 1e-9))); }
+
+  // Put the first n people back in their columns (after a change of scale).
+  function rebuild() {
+    S.counts = new Array(sc().k).fill(0); S.order = []; S.born = [];
+    for (var i = 0; i < S.n; i++) {
+      var c = colOf(S.v.data[i]);
+      S.order.push({ c: c, k: S.counts[c] }); S.born.push(0); S.counts[c] += 1;
+    }
+  }
+
+  function cancelPending() { S.timers.forEach(clearTimeout); S.timers = []; }
+
+  function reset() {
+    cancelPending();
+    S.n = 0; rebuild();
+    ADD.forEach(function (id) { $(id).disabled = false; });
+    $("latest").innerHTML = "Press <strong>Add a person</strong> to start.";
+    $("n").textContent = "0";
+    draw();
+  }
+
+  // Add the next person: their value goes in its column, on top of the pile.
+  function measure(animate) {
+    if (S.n >= MAX) return;
+    var x = S.v.data[S.n], c = colOf(x);
+    S.order.push({ c: c, k: S.counts[c] });
+    S.born.push(animate ? performance.now() : 0);
+    S.counts[c] += 1;
+    S.n += 1;
+    $("n").textContent = S.n.toLocaleString("en-GB");
+    $("latest").innerHTML = "Person " + S.n.toLocaleString("en-GB") + " " + S.v.say(x) + ".";
+    if (S.n >= MAX) ADD.forEach(function (id) { $(id).disabled = true; });
+  }
+
+  // Several people, dropping in one after another.
+  function addPeople(k, gap) {
+    for (var i = 0; i < k; i++) {
+      S.timers.push(setTimeout(function () { measure(true); kick(); }, i * gap));
+    }
+  }
+
+  /* ------------------------------------------------------------------ draw */
+  var G = {};  // geometry of the last frame, for hover
+  function layout() {
+    var W = Math.max(300, Math.round($("wrap").clientWidth));
+    var H = Math.round(Math.max(280, Math.min(460, W * 0.5)));
+    var dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
+      canvas.width = W * dpr; canvas.height = H * dpr;
+      canvas.style.height = H + "px";
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var M = { l: 14, r: 14, t: 26, b: 54 };
+    G = { W: W, H: H, M: M, pw: W - M.l - M.r, ph: H - M.t - M.b };
+    G.cw = G.pw / sc().k;
+    G.base = M.t + G.ph;
+  }
+
+  // As big a dot as possible, packed as many across a column as fit, while
+  // the tallest pile still fits.  Below ~1.6px the dots become bars.
+  function dotSize() {
+    var tallest = Math.max(6, Math.max.apply(null, S.counts));
+    var d = Math.min(26, G.cw * 0.9);
+    while (d > 1.2) {
+      var across = Math.max(1, Math.floor(G.cw * 0.94 / d));
+      if (Math.ceil(tallest / across) * d <= G.ph * 0.94) break;
+      d -= 0.25;
+    }
+    return { d: d, across: Math.max(1, Math.floor(G.cw * 0.94 / d)), bars: d < 1.6, tallest: tallest };
+  }
+
+  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+  function draw(now) {
+    now = now || performance.now();
+    layout();
+    var s = sc(), M = G.M, D = dotSize();
+    ctx.clearRect(0, 0, G.W, G.H);
+
+    // baseline and x axis
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(M.l, G.base + 0.5); ctx.lineTo(G.W - M.r, G.base + 0.5); ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.font = "13px 'IBM Plex Sans', system-ui, sans-serif";
+    var xOf = function (t) { return M.l + (t - s.lo) / (s.w * s.k) * G.pw; };
+    var label = s.tick || function (t) { return t.toLocaleString("en-GB"); };
+    var step = G.W < 520 && s.ticks.length > 7 ? 2 : 1;
+    s.ticks.forEach(function (t, i) { if (i % step === 0) ctx.fillText(label(t), xOf(t), G.base + 8); });
+    ctx.fillStyle = C.ink; ctx.font = "14px 'IBM Plex Sans', system-ui, sans-serif";
+    ctx.fillText(s.axis, M.l + G.pw / 2, G.base + 30);
+
+    // the pile
+    var animating = false;
+    var pxPerPerson = D.bars ? G.ph * 0.94 / D.tallest : D.d / D.across;
+    if (D.bars) {
+      ctx.fillStyle = C.data;
+      S.counts.forEach(function (n, c) {
+        if (!n) return;
+        var x = M.l + c * G.cw + 1, w = Math.max(1, G.cw - 2), h = n * pxPerPerson;
+        var r = Math.min(3, w / 2, h);
+        ctx.beginPath();
+        ctx.moveTo(x, G.base); ctx.lineTo(x, G.base - h + r);
+        ctx.quadraticCurveTo(x, G.base - h, x + r, G.base - h);
+        ctx.lineTo(x + w - r, G.base - h);
+        ctx.quadraticCurveTo(x + w, G.base - h, x + w, G.base - h + r);
+        ctx.lineTo(x + w, G.base); ctx.closePath(); ctx.fill();
+      });
+    } else {
+      var rad = D.d * 0.45;
+      for (var i = 0; i < S.order.length; i++) {
+        var o = S.order[i], row = Math.floor(o.k / D.across), slot = o.k % D.across;
+        var cx = M.l + (o.c + 0.5) * G.cw + (slot - (D.across - 1) / 2) * D.d;
+        var cy = G.base - (row + 0.5) * D.d;
+        var t0 = S.born[i];
+        if (t0) {
+          var t = (now - t0) / FALL_MS;
+          if (t < 1) { cy = (M.t - rad) + (cy - (M.t - rad)) * easeOut(Math.max(0, t)); animating = true; }
+          else S.born[i] = 0;
+        }
+        ctx.beginPath(); ctx.arc(cx, cy, rad, 0, 2 * Math.PI);
+        ctx.fillStyle = (i === S.order.length - 1) ? C.alert : C.data;
+        ctx.fill();
+        if (D.d > 7) { ctx.lineWidth = Math.min(2, D.d * 0.08); ctx.strokeStyle = C.card; ctx.stroke(); }
+      }
+    }
+
+    // The shape: a smooth line through the top of every pile.  It follows
+    // the piles exactly (a smoothed density would flatten the spike of
+    // non-drinkers at zero), and it is only as smooth as the data are.
+    if ($("shape").checked && S.n >= 20) {
+      var pts = [[M.l, G.base]];
+      S.counts.forEach(function (n, c) { pts.push([M.l + (c + 0.5) * G.cw, G.base - n * pxPerPerson]); });
+      pts.push([M.l + s.k * G.cw, G.base]);
+      ctx.strokeStyle = C.alert; ctx.lineWidth = 2.5; ctx.lineJoin = "round"; ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (var q = 0; q < pts.length - 1; q++) {
+        // Catmull-Rom between pts[q] and pts[q+1], sampled; never below the baseline
+        var p0 = pts[Math.max(0, q - 1)], p1 = pts[q], p2 = pts[q + 1], p3 = pts[Math.min(pts.length - 1, q + 2)];
+        for (var j = 1; j <= 10; j++) {
+          var u = j / 10, u2 = u * u, u3 = u2 * u;
+          var sx = 0.5 * (2 * p1[0] + (-p0[0] + p2[0]) * u + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * u2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * u3);
+          var sy = 0.5 * (2 * p1[1] + (-p0[1] + p2[1]) * u + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * u2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * u3);
+          ctx.lineTo(sx, Math.min(G.base, sy));
+        }
+      }
+      ctx.stroke();
+    }
+    if ($("shape").checked && S.n < 20) {
+      ctx.fillStyle = C.muted; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.font = "15px 'IBM Plex Sans', system-ui, sans-serif";
+      ctx.fillText("Add a few more people first", G.W / 2, M.t + G.ph * 0.35);
+    }
+    return animating;
+  }
+
+  /* ----------------------------------------------------------------- loop */
+  var running = false;
+  function tick(now) {
+    if (draw(now)) requestAnimationFrame(tick); else running = false;
+  }
+  function kick() { if (!running) { running = true; requestAnimationFrame(tick); } }
+
+  /* ---------------------------------------------------------------- hover */
+  function columnLabel(c) {
+    var v = S.v, s = sc();
+    if (v.top && c === s.k - 1) return v.top;
+    if (S.log && v.log) {
+      var a = Math.round(Math.pow(10, s.lo + c * s.w)), b = Math.round(Math.pow(10, s.lo + (c + 1) * s.w));
+      return a.toLocaleString("en-GB") + "–" + b.toLocaleString("en-GB") + " " + v.word;
+    }
+    if (v.range) {
+      return (s.lo + c * s.w).toLocaleString("en-GB") + "–" + (s.lo + (c + 1) * s.w).toLocaleString("en-GB") + " " + v.word;
+    }
+    return v.unit(s.lo + (c + 0.5) * s.w);
+  }
+  canvas.addEventListener("mousemove", function (e) {
+    var box = canvas.getBoundingClientRect(), x = e.clientX - box.left;
+    var c = Math.floor((x - G.M.l) / G.cw);
+    if (c < 0 || c >= sc().k || !S.n) { tip.hidden = true; return; }
+    var n = S.counts[c];
+    tip.innerHTML = "<strong>" + columnLabel(c) + "</strong><br>" + n + (n === 1 ? " person" : " people");
+    tip.style.left = x + "px"; tip.style.top = (e.clientY - box.top) + "px"; tip.hidden = false;
+  });
+  canvas.addEventListener("mouseleave", function () { tip.hidden = true; });
+
+  /* ---------------------------------------------------------------- wiring */
+  VARS.forEach(function (v, i) {
+    var o = document.createElement("option"); o.value = i; o.textContent = v.name; $("variable").appendChild(o);
+  });
+  $("variable").addEventListener("change", function () {
+    S.v = VARS[+this.value];
+    S.log = false; $("log").checked = false;
+    $("logwrap").hidden = !S.v.log;
+    reset();
+  });
+  $("one").addEventListener("click", function () { measure(true); kick(); });
+  $("ten").addEventListener("click", function () { addPeople(10, 70); });
+  $("hundred").addEventListener("click", function () { addPeople(100, 14); });
+  $("shape").addEventListener("change", function () { draw(); });
+  $("log").addEventListener("change", function () { S.log = this.checked; rebuild(); draw(); });
+  $("reset").addEventListener("click", reset);
+  document.addEventListener("keydown", function (e) {
+    if (e.target.tagName === "SELECT" || e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key.toLowerCase();
+    if (k === " " || k === "spacebar") { e.preventDefault(); if (!$("one").disabled) $("one").click(); }
+    else if (k === "t") { if (!$("ten").disabled) $("ten").click(); }
+    else if (k === "h") { if (!$("hundred").disabled) $("hundred").click(); }
+    else if (k === "s") { $("shape").checked = !$("shape").checked; draw(); }
+    else if (k === "l" && S.v.log) { $("log").checked = !$("log").checked; $("log").dispatchEvent(new Event("change")); }
+    else if (k === "r") reset();
+  });
+  var resizeTimer;
+  window.addEventListener("resize", function () { tip.hidden = true; clearTimeout(resizeTimer); resizeTimer = setTimeout(function () { draw(); }, 100); });
+
+  // For checking from outside the page.
+  window.pileup = { VARS: VARS, state: S, measure: measure };
+
+  reset();
+})();
+</script>
+</body>
+</html>

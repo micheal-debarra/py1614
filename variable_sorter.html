@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variable Sorter — PY1614 Lecture 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,700&display=swap" rel="stylesheet">
+<style>
+  /* Same tokens as the week 1 quiz, so the two pages read as one set. */
+  :root {
+    --bg: #f6f5f1;
+    --card: #ffffff;
+    --ink: #1d2126;
+    --muted: #5a6068;
+    --accent: #2c5777;
+    --line: #e4dfd5;
+    --option-line: #e2ddd3;
+    --option-hover: #c9c1b3;
+    --correct: #2e7a4c;
+    --correct-bg: #eef7f1;
+    --wrong: #b0402e;
+    --wrong-bg: #fbefec;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 760px; margin: 0 auto; padding: 48px 16px 64px; }
+
+  /* ---------- Header ---------- */
+  .page-header { text-align: center; }
+  .page-header h1 {
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-weight: 700;
+    font-size: clamp(2rem, 6vw, 2.75rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  .page-header .subtitle { color: var(--muted); font-size: 1.1rem; margin: 0 0 28px; }
+
+  .progress { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .progress-fill { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.35s ease; }
+  .progress-label { color: var(--muted); font-size: 0.85rem; margin: 8px 0 0; }
+
+  .rule { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+  .intro { color: var(--muted); font-size: 0.95rem; margin: 0 0 12px; }
+  .key { color: var(--muted); font-size: 0.9rem; margin: 0 0 36px; padding-left: 18px; }
+  .key li { margin-bottom: 4px; }
+
+  /* ---------- Study cards ---------- */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 28px 28px 10px;
+    margin-bottom: 24px;
+  }
+  .q-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 8px;
+  }
+  .card h2 { font-size: 1.25rem; font-weight: 600; line-height: 1.35; margin: 0 0 8px; }
+  .study { color: var(--muted); margin: 0 0 18px; }
+
+  /* ---------- One variable ---------- */
+  .var { border-top: 1px solid var(--line); padding: 18px 0 16px; }
+  .var-name { font-weight: 600; font-size: 1.05rem; margin: 0 0 2px; }
+  .var-desc { color: var(--muted); font-size: 0.92rem; margin: 0 0 12px; }
+
+  fieldset { border: 0; padding: 0; margin: 0 0 10px; min-width: 0; }
+  legend {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0;
+    margin: 0 0 6px;
+  }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .pill { position: relative; }
+  .pill input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .pill span {
+    display: inline-block;
+    padding: 8px 14px;
+    border: 1.5px solid var(--option-line);
+    border-radius: 999px;
+    background: var(--card);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: border-color 0.15s, background-color 0.15s;
+    user-select: none;
+  }
+  .pill span:hover { border-color: var(--option-hover); background: #fcfbf8; }
+  .pill input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  fieldset.answered .pill span { cursor: default; }
+  fieldset.answered .pill span:hover { border-color: var(--option-line); background: var(--card); }
+  fieldset.answered .pill.is-correct span { border-color: var(--correct); background: var(--correct-bg); color: var(--correct); font-weight: 600; }
+  fieldset.answered .pill.is-wrong span { border-color: var(--wrong); background: var(--wrong-bg); color: var(--wrong); text-decoration: line-through; }
+
+  .feedback {
+    margin: 4px 0 12px;
+    padding: 10px 14px;
+    border-left: 3px solid var(--accent);
+    background: #f3f6f9;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.92rem;
+    line-height: 1.55;
+  }
+  .feedback .verdict { font-weight: 600; }
+  .feedback.good { border-left-color: var(--correct); background: var(--correct-bg); }
+  .feedback.good .verdict { color: var(--correct); }
+  .feedback.bad { border-left-color: var(--wrong); background: var(--wrong-bg); }
+  .feedback.bad .verdict { color: var(--wrong); }
+
+  /* ---------- Results ---------- */
+  .results { text-align: center; padding-bottom: 28px; }
+  .results .score {
+    font-family: "Source Serif 4", Georgia, serif;
+    font-weight: 700;
+    font-size: 2.25rem;
+    color: var(--accent);
+    margin: 4px 0 6px;
+  }
+  .results p { color: var(--muted); margin: 0 0 20px; }
+
+  .btn {
+    font: inherit;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent);
+    border: 0;
+    border-radius: 8px;
+    padding: 12px 26px;
+    cursor: pointer;
+  }
+  .btn:hover { background: #234862; }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .footer { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+
+  @media (max-width: 480px) {
+    .page { padding-top: 32px; }
+    .card { padding: 22px 18px 6px; }
+    .pill span { padding: 7px 12px; font-size: 0.9rem; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <header class="page-header">
+    <h1>Variable sorter</h1>
+    <p class="subtitle">PY1614 Research Analysis &middot; Lecture 2</p>
+    <div class="progress" role="progressbar" aria-label="Choices made" aria-valuemin="0" aria-valuenow="0">
+      <span class="progress-fill"></span>
+    </div>
+    <p class="progress-label" id="progress-label" aria-live="polite"></p>
+  </header>
+
+  <hr class="rule">
+
+  <p class="intro">Four studies. For every variable, choose what <strong>type</strong> it is and whether it was <strong>measured or manipulated</strong>. You'll see straight away whether you were right, and why. Your first choice is the one that counts.</p>
+  <ul class="key">
+    <li><strong>Categorical:</strong> a set of values with no meaningful order.</li>
+    <li><strong>Ordinal:</strong> a meaningful order, but the gaps aren't equal.</li>
+    <li><strong>Numeric:</strong> ordered, with equal gaps. <em>Discrete</em> takes whole numbers only; <em>continuous</em> can take values in between.</li>
+    <li><strong>Measured</strong> means the researcher recorded it; <strong>manipulated</strong> means the researcher decided it.</li>
+  </ul>
+
+  <div id="studies"></div>
+
+  <section class="card results" id="results" hidden>
+    <p class="q-label">Done</p>
+    <p class="score"><span id="score">0</span> / <span id="total">0</span></p>
+    <p id="score-message"></p>
+    <button class="btn" id="reset" type="button">Start again</button>
+  </section>
+
+  <p class="footer">After Nettle, <em>From Questions to Knowledge</em>, &sect;1.3: list every variable in a study, then classify each one.</p>
+</main>
+
+<script>
+/* ------------------------------------------------------------------------
+   To edit: change the studies below.
+   type:     "cat" | "ord" | "disc" | "cont"
+   alsoType: other answers accepted as right, with altNote saying why
+   role:     "measured" | "manipulated"
+   ------------------------------------------------------------------------ */
+var TYPES = [
+  { id: "cat",  label: "Categorical",              say: "categorical" },
+  { id: "ord",  label: "Ordinal",                  say: "ordinal" },
+  { id: "disc", label: "Numeric: discrete",   say: "discrete numeric" },
+  { id: "cont", label: "Numeric: continuous", say: "continuous numeric" }
+];
+var ROLES = [
+  { id: "measured",    label: "Measured",    say: "measured" },
+  { id: "manipulated", label: "Manipulated", say: "manipulated" }
+];
+
+var STUDIES = [
+  {
+    title: "The survey you did before the lecture",
+    text: "Everything here was simply asked and recorded.",
+    vars: [
+      { name: "How you got to campus", desc: "walked / bus / tube or train / car / cycled / other",
+        type: "cat", why: "There's no order: the bus isn't “more” than walking.",
+        role: "measured", rwhy: "You told us; nobody decided it for you." },
+      { name: "Number of brothers and sisters", desc: "a whole number",
+        type: "disc", why: "A count: you can have 2 or 3, never 2.5. Each extra sibling is the same step.",
+        role: "measured", rwhy: "Recorded, not assigned." },
+      { name: "Hours slept last night", desc: "for example, 6.5",
+        type: "cont", why: "Time can take any value in between (6.5, 6.75…), even if you rounded your answer.",
+        alsoType: ["disc"], altNote: "If people only answer in whole or half hours the values look discrete, but sleep itself is continuous.",
+        role: "measured", rwhy: "Recorded, not assigned." },
+      { name: "Caffeinated drinks so far today", desc: "a whole number",
+        type: "disc", why: "A count of drinks, and lots of people will say 0.",
+        role: "measured", rwhy: "Recorded, not assigned." },
+      { name: "Maths confidence", desc: "very low / low / moderate / high / very high",
+        type: "ord", why: "There's an order, but is “low” to “moderate” the same step as “high” to “very high”? We can't say.",
+        role: "measured", rwhy: "Recorded, not assigned." },
+      { name: "Phone screen time yesterday", desc: "hours, from your phone's settings",
+        type: "cont", why: "Time again: any value in between is possible.",
+        role: "measured", rwhy: "Recorded, not assigned." },
+      { name: "Life satisfaction, one question", desc: "“Overall, how satisfied are you with your life nowadays?” 0–10",
+        type: "ord", why: "Strictly ordinal: we can't be sure the step from 3 to 4 equals the step from 8 to 9.",
+        alsoType: ["disc", "cont"], altNote: "Strictly it's ordinal, but researchers very often treat a 0–10 rating as a number. Worth arguing about.",
+        role: "measured", rwhy: "Recorded, not assigned." },
+      { name: "One Satisfaction With Life Scale item", desc: "“I am satisfied with my life”: strongly disagree … strongly agree (1–7)",
+        type: "ord", why: "A single Likert item: ordered categories, unequal gaps.",
+        role: "measured", rwhy: "Recorded, not assigned." },
+      { name: "Satisfaction With Life Scale total", desc: "five items added up: 5 to 35",
+        type: "cont", why: "Adding up many ordinal items gives a score with lots of possible values, so it's treated as numeric (usually as continuous).",
+        alsoType: ["disc"], altNote: "It only takes whole numbers, so “discrete” is fair. The point is that it's treated as numeric.",
+        role: "measured", rwhy: "Recorded, not assigned." }
+    ]
+  },
+  {
+    title: "Physical activity and depression: a survey",
+    text: "Researchers ask 300 adults how often they exercise each week, and give them the PHQ-9 depression questionnaire.",
+    vars: [
+      { name: "Exercise sessions per week", desc: "self-reported",
+        type: "disc", why: "A count of sessions.",
+        role: "measured", rwhy: "People were exercising that much anyway; the researchers just recorded it." },
+      { name: "PHQ-9 total", desc: "nine items scored 0–3, added up: 0 to 27",
+        type: "cont", why: "A summed scale, treated as numeric.",
+        alsoType: ["disc"], altNote: "It only takes whole numbers, so “discrete” is fair; either way it's treated as numeric.",
+        role: "measured", rwhy: "Recorded with a questionnaire." },
+      { name: "Age", desc: "in years",
+        type: "cont", why: "Age is continuous: you're always somewhere between birthdays.",
+        alsoType: ["disc"], altNote: "Recorded in whole years it looks discrete, but age itself is continuous.",
+        role: "measured", rwhy: "Recorded, not assigned." },
+      { name: "Gender", desc: "",
+        type: "cat", why: "Categories with no order.",
+        role: "measured", rwhy: "Recorded, not assigned." }
+    ]
+  },
+  {
+    title: "Physical activity and depression: an experiment",
+    text: "Researchers ask half of 300 volunteers to exercise four times a week and the other half not to exercise, then give everyone the PHQ-9 after eight weeks.",
+    vars: [
+      { name: "Group", desc: "exercise four times a week / no exercise",
+        type: "cat", why: "Two categories, no order: a binary variable.",
+        role: "manipulated", rwhy: "The researchers decided who exercised. That's what makes this an experiment." },
+      { name: "PHQ-9 total after eight weeks", desc: "0 to 27",
+        type: "cont", why: "A summed scale, treated as numeric.",
+        alsoType: ["disc"], altNote: "Whole numbers only, so “discrete” is fair; it's treated as numeric either way.",
+        role: "measured", rwhy: "This is the outcome: whatever it turned out to be." },
+      { name: "Exercise sessions actually completed", desc: "counted from a diary",
+        type: "disc", why: "A count of sessions.",
+        role: "measured", rwhy: "Even in an experiment, what people actually did is measured. The researchers assigned the group, not the sessions completed." },
+      { name: "Age", desc: "in years",
+        type: "cont", why: "Age is continuous.",
+        alsoType: ["disc"], altNote: "Recorded in whole years it looks discrete, but age itself is continuous.",
+        role: "measured", rwhy: "Recorded, not assigned." }
+    ]
+  },
+  {
+    title: "Mindfulness and exam anxiety",
+    text: "Does an eight-week mindfulness course reduce exam anxiety? Students are randomly assigned to the course or to a waiting list.",
+    vars: [
+      { name: "Condition", desc: "course / waiting list",
+        type: "cat", why: "Two categories with no order: binary.",
+        role: "manipulated", rwhy: "Random assignment by the researchers." },
+      { name: "GAD-7 total anxiety score", desc: "seven items added up: 0 to 21",
+        type: "cont", why: "A summed scale, treated as numeric.",
+        alsoType: ["disc"], altNote: "Whole numbers only, so “discrete” is fair; it's treated as numeric either way.",
+        role: "measured", rwhy: "The outcome, recorded with a questionnaire." },
+      { name: "One GAD-7 item", desc: "0 = not at all … 3 = nearly every day",
+        type: "ord", why: "Ordered, but “several days” to “more than half the days” needn't be the same step as the next one.",
+        role: "measured", rwhy: "Recorded, not assigned." },
+      { name: "Sessions attended", desc: "0 to 8",
+        type: "disc", why: "A count.",
+        role: "measured", rwhy: "The course was assigned; how many sessions people went to wasn't." },
+      { name: "Age", desc: "in years",
+        type: "cont", why: "Age is continuous.",
+        alsoType: ["disc"], altNote: "Recorded in whole years it looks discrete, but age itself is continuous.",
+        role: "measured", rwhy: "Recorded, not assigned." },
+      { name: "Gender", desc: "",
+        type: "cat", why: "Categories with no order.",
+        role: "measured", rwhy: "Recorded, not assigned." }
+    ]
+  }
+];
+
+/* ------------------------------------------------------------------------ */
+(function () {
+  var root = document.getElementById("studies");
+  var fill = document.querySelector(".progress-fill");
+  var bar = document.querySelector(".progress");
+  var label = document.getElementById("progress-label");
+  var results = document.getElementById("results");
+  var total = 0, made = 0, right = 0;
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function sayOf(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i].say;
+    return id;
+  }
+
+  function update() {
+    fill.style.width = (made / total * 100) + "%";
+    bar.setAttribute("aria-valuenow", made);
+    label.textContent = made + " of " + total + " choices made";
+    if (made === total) {
+      document.getElementById("score").textContent = right;
+      document.getElementById("total").textContent = total;
+      var pct = right / total;
+      document.getElementById("score-message").textContent =
+        pct === 1 ? "Every one right. You can classify variables." :
+        pct >= 0.8 ? "Nearly all right. Read the feedback on the ones you missed." :
+        "Worth another go: look back at the key at the top, then start again.";
+      results.hidden = false;
+    }
+  }
+
+  // One group of choices (type, or measured/manipulated) for one variable.
+  function group(v, legendText, options, answer, accepted, why, altNote, name) {
+    var fs = el("fieldset");
+    fs.appendChild(el("legend", null, legendText));
+    var pills = el("div", "pills");
+    var fb = el("div", "feedback");
+    fb.hidden = true;
+    fb.setAttribute("aria-live", "polite");
+    total += 1;
+
+    options.forEach(function (o) {
+      var lab = el("label", "pill");
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = name;
+      input.value = o.id;
+      lab.appendChild(input);
+      lab.appendChild(el("span", null, o.label));
+      lab.dataset.id = o.id;
+      pills.appendChild(lab);
+
+      input.addEventListener("change", function () {
+        if (fs.classList.contains("answered")) return;
+        fs.classList.add("answered");
+        var exact = o.id === answer;
+        var ok = exact || accepted.indexOf(o.id) !== -1;
+        made += 1;
+        if (ok) right += 1;
+
+        Array.prototype.forEach.call(pills.children, function (p) {
+          var pid = p.dataset.id;
+          if (pid === answer || (ok && pid === o.id)) p.classList.add("is-correct");
+          else if (pid === o.id) p.classList.add("is-wrong");
+          p.querySelector("input").disabled = true;
+        });
+
+        fb.innerHTML = "";
+        var verdict = el("span", "verdict");
+        if (exact) verdict.textContent = "Right. ";
+        else if (ok) verdict.textContent = "That works. ";
+        else verdict.textContent = "Not quite: it's " + sayOf(options, answer) + ". ";
+        fb.appendChild(verdict);
+        fb.appendChild(document.createTextNode(exact || !ok ? why : altNote));
+        fb.className = "feedback " + (ok ? "good" : "bad");
+        fb.hidden = false;
+        update();
+      });
+    });
+
+    fs.appendChild(pills);
+    var wrap = el("div");
+    wrap.appendChild(fs);
+    wrap.appendChild(fb);
+    return wrap;
+  }
+
+  function build() {
+    root.innerHTML = "";
+    total = 0; made = 0; right = 0;
+    results.hidden = true;
+    STUDIES.forEach(function (s, si) {
+      var card = el("section", "card");
+      card.appendChild(el("p", "q-label", "Study " + (si + 1) + " of " + STUDIES.length));
+      card.appendChild(el("h2", null, s.title));
+      card.appendChild(el("p", "study", s.text));
+      s.vars.forEach(function (v, vi) {
+        var row = el("div", "var");
+        row.appendChild(el("p", "var-name", v.name));
+        if (v.desc) row.appendChild(el("p", "var-desc", v.desc));
+        row.appendChild(group(v, "Type", TYPES, v.type, v.alsoType || [], v.why,
+                              v.altNote || "", "t-" + si + "-" + vi));
+        row.appendChild(group(v, "Measured or manipulated?", ROLES, v.role, [], v.rwhy,
+                              "", "r-" + si + "-" + vi));
+        card.appendChild(row);
+      });
+      root.appendChild(card);
+    });
+    update();
+  }
+
+  document.getElementById("reset").addEventListener("click", function () {
+    build();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  build();
+})();
+</script>
+</body>
+</html>
